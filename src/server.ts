@@ -1,7 +1,11 @@
 import 'reflect-metadata';
-
+import { Express } from 'express'
+import { validationMetadatasToSchemas } from 'class-validator-jsonschema'
+import { getFromContainer, MetadataStorage } from 'class-validator' // tslint:disable-line
 import {createConnection, useContainer as typeormUseContainer} from "typeorm";
-import {createExpressServer, useContainer as routeringControllerUseContainer} from "routing-controllers";
+import {createExpressServer, getMetadataArgsStorage, useContainer as routingControllerUseContainer} from "routing-controllers";
+import { routingControllersToSpec } from 'routing-controllers-openapi'
+
 import {Container} from "typedi";
 
 process.on("uncaughtException", e => {
@@ -15,13 +19,44 @@ process.on("unhandledRejection", e => {
 });
  
 typeormUseContainer(Container);
-routeringControllerUseContainer(Container);
+routingControllerUseContainer(Container);
 createConnection(); 
 
-const { PORT = 3000 } = process.env;
-
-createExpressServer({
+const routingControllersOptions = {
   controllers: [__dirname + "/controllers/*.js"],
   // middlewares: [__dirname + "/middlewares/*.js"],
   // interceptors: [__dirname + "/interceptors/*.js"],
-}).listen(PORT);
+};
+const app: Express = createExpressServer(routingControllersOptions);
+
+// Parse class-validator classes into JSON Schema:
+const metadatas = (getFromContainer(MetadataStorage) as any).validationMetadatas
+const schemas = validationMetadatasToSchemas(metadatas, {
+  refPointerPrefix: '#/components/schemas/'
+})
+
+// Parse routing-controllers classes into OpenAPI spec:
+const storage = getMetadataArgsStorage()
+const spec = routingControllersToSpec(storage, routingControllersOptions, {
+  components: {
+    schemas,
+    securitySchemes: {
+      basicAuth: {
+        scheme: 'basic',
+        type: 'http'
+      }
+    }
+  },
+  info: {
+    description: 'Generated with `routing-controllers-openapi`',
+    title: 'A sample API',
+    version: '1.0.0'
+  }
+})
+
+// Render spec on root:
+app.get('/', (_req, res) => { res.send('hello') });
+app.get('/swagger.json', (_req, res) => res.json(spec));
+
+const { PORT = 3000 } = process.env;
+app.listen(PORT)
