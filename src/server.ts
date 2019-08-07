@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+
 import http from "http";
 import express from "express";
 import { applyMiddleware, applyRoutes } from "./utils";
@@ -14,6 +16,11 @@ process.on("unhandledRejection", e => {
   console.log(e);
   process.exit(1);
 });
+import {createConnection, useContainer} from "typeorm";
+import {Container} from "typedi";
+ 
+useContainer(Container);
+createConnection(); 
 
 const router = express();
 applyMiddleware(middleware, router);
