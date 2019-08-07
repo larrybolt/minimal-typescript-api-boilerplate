@@ -6,7 +6,10 @@ import {createConnection, useContainer as typeormUseContainer} from "typeorm";
 import {createExpressServer, getMetadataArgsStorage, useContainer as routingControllerUseContainer} from "routing-controllers";
 import { routingControllersToSpec } from 'routing-controllers-openapi'
 
+import SwaggerUIExpress from 'swagger-ui-express'
+
 import {Container} from "typedi";
+import swaggerUiExpress = require('swagger-ui-express');
 
 process.on("uncaughtException", e => {
   console.log(e);
@@ -54,9 +57,13 @@ const spec = routingControllersToSpec(storage, routingControllersOptions, {
   }
 })
 
-// Render spec on root:
-app.get('/', (_req, res) => { res.send('hello') });
+app.get('/', (_req, res) => { res.redirect('/api-docs') });
 app.get('/swagger.json', (_req, res) => res.json(spec));
+app.use('/api-docs', swaggerUiExpress.serve, swaggerUiExpress.setup(null, {
+  swaggerOptions: {
+    url: '/swagger.json'
+  }
+}));
 
 const { PORT = 3000 } = process.env;
 app.listen(PORT)
