@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Param,
-  Body,
-  Get,
-  Post,
-  Put,
-  Delete,
-  JsonController
-} from "routing-controllers";
+import { Get, JsonController } from "routing-controllers";
 import { Repository } from "typeorm";
 import { InjectRepository } from "typeorm-typedi-extensions";
 import { Account } from "../models/Account";
@@ -20,7 +11,7 @@ export class AccountController {
 
   @Get("/")
   @ResponseSchema(Account)
-  getAll() {
+  getAll(): Promise<Account[]> {
     return this.repository.find();
   }
 }

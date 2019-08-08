@@ -1,7 +1,8 @@
 import "reflect-metadata";
+import { config } from "dotenv";
 import { Express } from "express";
 import { validationMetadatasToSchemas } from "class-validator-jsonschema";
-import { getFromContainer, MetadataStorage } from "class-validator"; // tslint:disable-line
+import { getFromContainer, MetadataStorage } from "class-validator";
 import { createConnection, useContainer as typeormUseContainer } from "typeorm";
 import {
   createExpressServer,
@@ -13,34 +14,47 @@ import swaggerUiExpress = require("swagger-ui-express");
 
 import { Container } from "typedi";
 
+// load .env files
+config();
+
+// quit on errors
 process.on("uncaughtException", e => {
+  console.log('uncaughtException')
   console.log(e);
   process.exit(1);
 });
-
 process.on("unhandledRejection", e => {
+  console.log('unhandledRejection')
   console.log(e);
   process.exit(1);
 });
 
+// typeorm, aka database with orm
 typeormUseContainer(Container);
-routingControllerUseContainer(Container);
-createConnection();
+createConnection({
+  type: process.env.TYPEORM_CONNECTION as any,
+  url: process.env.TYPEORM_URL,
+  synchronize: process.env.TYPEORM_SYNCHRONIZE === 'true',
+  logging: process.env.TYPEORM_LOGGING === 'true',
+  entities: [__dirname + "/models/*.{js,ts}"]
+});
 
+// routing, aka controllers
+routingControllerUseContainer(Container);
 const routingControllersOptions = {
-  controllers: [__dirname + "/controllers/*.js"]
+  controllers: [__dirname + "/controllers/*.{ts,js}"]
   // middlewares: [__dirname + "/middlewares/*.js"],
   // interceptors: [__dirname + "/interceptors/*.js"],
 };
 const app: Express = createExpressServer(routingControllersOptions);
 
+// auto swagger generation
 // Parse class-validator classes into JSON Schema:
 const metadatas = (getFromContainer(MetadataStorage) as any)
   .validationMetadatas;
 const schemas = validationMetadatasToSchemas(metadatas, {
   refPointerPrefix: "#/components/schemas/"
 });
-
 // Parse routing-controllers classes into OpenAPI spec:
 const storage = getMetadataArgsStorage();
 const spec = routingControllersToSpec(storage, routingControllersOptions, {
@@ -60,7 +74,7 @@ const spec = routingControllersToSpec(storage, routingControllersOptions, {
   }
 });
 
-// API documentation
+// swagger ui to view swagger docs
 app.get("/", (_req, res) => {
   res.redirect("/api-docs");
 });
